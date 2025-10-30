@@ -1,0 +1,6 @@
+# Archivos y carpetas que no deben subirse
+.env
+__pycache__/
+*.pyc
+data/logs/
+data/outputs/
