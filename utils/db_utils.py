@@ -26,19 +26,26 @@ def init_sync_status_table(schema="hubspot"):
 def get_db_connection(schema: str = None):
     """Conecta a PostgreSQL y, si se pasa schema, lo define como search_path."""
     try:
-        schema_option = f"-c search_path={schema}" if schema else ""
         conn = psycopg2.connect(
             host=os.getenv("PG_HOST"),
             port=os.getenv("PG_PORT"),
             database=os.getenv("PG_DB"),
             user=os.getenv("PG_USER"),
-            password=os.getenv("PG_PASSWORD"),
-            options=schema_option
+            password=os.getenv("PG_PASSWORD")
         )
-        logger.info(f"✅ Conexión exitosa (schema activo: {schema or 'public'})")
+        
+        # Establecer el schema si se proporciona
+        if schema:
+            cursor = conn.cursor()
+            cursor.execute(f"SET search_path TO {schema}")
+            conn.commit()
+            cursor.close()
+            
+        logger.info(f"✅ Conexión exitosa a {os.getenv('PG_DB')} (schema: {schema or 'public'})")
         return conn
     except Exception as e:
         logger.error(f"❌ Error al conectar a PostgreSQL: {e}")
+        logger.error(f"   Host: {os.getenv('PG_HOST')}, DB: {os.getenv('PG_DB')}, User: {os.getenv('PG_USER')}")
         return None
 
 
