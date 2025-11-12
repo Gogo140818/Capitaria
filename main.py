@@ -1,5 +1,5 @@
 from utils.hubspot_utils import get_all_contacts
-from utils.sync_utils import save_contacts_to_db
+from utils.db_utils import save_contacts_to_db
 from utils.db_utils import init_schema, init_contacts_table
 
 def main():
