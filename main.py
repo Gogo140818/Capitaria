@@ -23,7 +23,7 @@ def main():
 
     # 3. Guardar en base de datos
     print("\n3. 💾 Guardando contactos en base de datos...")
-    save_contacts_to_db(contacts)
+    save_contacts_to_db(contacts, schema="hubspot")
 
     print("\n🎊 SINCRONIZACIÓN COMPLETADA!")
 

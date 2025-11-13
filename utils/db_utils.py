@@ -64,7 +64,16 @@ def init_contacts_table(schema="hubspot"):
             email VARCHAR(255),
             phone VARCHAR(50),
             createdate TIMESTAMP,
-            lastmodifieddate TIMESTAMP
+            lastmodifieddate TIMESTAMP,
+            pais VARCHAR(100),
+            comuna VARCHAR(100),
+            created_in_salesforce VARCHAR(10),
+            send_to_salesforce VARCHAR(10),
+            respuesta_primera_interaccion VARCHAR(255),
+            etapa_vambe VARCHAR(100),
+            contactado_vambe VARCHAR(100),
+            hs_object_source_detail_1 VARCHAR(255),
+            scoring_clon VARCHAR(100)
         );
     """)
     conn.commit()
@@ -92,7 +101,16 @@ def init_temp_contacts_table(schema="hubspot"):
             email VARCHAR(255),
             phone VARCHAR(50),
             createdate TIMESTAMP,
-            lastmodifieddate TIMESTAMP
+            lastmodifieddate TIMESTAMP,
+            pais VARCHAR(100),
+            comuna VARCHAR(100),
+            created_in_salesforce VARCHAR(10),
+            send_to_salesforce VARCHAR(10),
+            respuesta_primera_interaccion VARCHAR(255),
+            etapa_vambe VARCHAR(100),
+            contactado_vambe VARCHAR(100),
+            hs_object_source_detail_1 VARCHAR(255),
+            scoring_clon VARCHAR(100)
         );
     """)
 
@@ -104,22 +122,20 @@ def init_temp_contacts_table(schema="hubspot"):
 
 def save_contacts_to_db(contacts, schema="hubspot"):
     """Guarda los contactos en base de datos usando COPY + UPSERT forzado al schema correcto."""
-    import io
-    import time
-
     start_time = time.time()
-    conn = get_db_connection()  # 🔹 sin schema, para no hacer SET search_path
+    conn = get_db_connection()  # sin schema, para no activar search_path
     cur = conn.cursor()
 
-    # 🔹 asegurar que la tabla existe
+    # Asegurar tabla temporal
     init_temp_contacts_table(schema)
 
     try:
+        # LIMPIAR TABLA TEMPORAL
         print(f"🧹 Limpiando tabla {schema}.temp_contacts...")
         cur.execute(f"TRUNCATE {schema}.temp_contacts;")
         conn.commit()
 
-        # 🔹 preparar buffer en memoria
+        # PREPARAR BUFFER PARA COPY
         buffer = io.StringIO()
         for c in contacts:
             p = c.properties
@@ -130,43 +146,124 @@ def save_contacts_to_db(contacts, schema="hubspot"):
                 f"{p.get('email') or ''}\t"
                 f"{p.get('phone') or ''}\t"
                 f"{p.get('createdate') or ''}\t"
-                f"{p.get('lastmodifieddate') or ''}\n"
+                f"{p.get('lastmodifieddate') or ''}\t"
+                f"{p.get('pais') or ''}\t"
+                f"{p.get('comuna') or ''}\t"
+                f"{p.get('created_in_salesforce') or ''}\t"
+                f"{p.get('send_to_salesforce') or ''}\t"
+                f"{p.get('respuesta_primera_interaccion') or ''}\t"
+                f"{p.get('etapa_vambe') or ''}\t"
+                f"{p.get('contactado_vambe') or ''}\t"
+                f"{p.get('hs_object_source_detail_1') or ''}\t"
+                f"{p.get('scoring_clon') or ''}\n"
             )
         buffer.seek(0)
 
+        # COPY → temp_contacts
         print(f"📥 Iniciando inserción masiva de {len(contacts)} contactos usando COPY...")
         copy_sql = f"""
             COPY {schema}.temp_contacts
-            (hs_object_id, firstname, lastname, email, phone, createdate, lastmodifieddate)
+            (
+                hs_object_id,
+                firstname,
+                lastname,
+                email,
+                phone,
+                createdate,
+                lastmodifieddate,
+                pais,
+                comuna,
+                created_in_salesforce,
+                send_to_salesforce,
+                respuesta_primera_interaccion,
+                etapa_vambe,
+                contactado_vambe,
+                hs_object_source_detail_1,
+                scoring_clon
+            )
             FROM STDIN WITH (FORMAT text, DELIMITER E'\\t', NULL '');
         """
-        cur.copy_expert(copy_sql, buffer)  # 🔹 forzado al schema correcto
+        cur.copy_expert(copy_sql, buffer)
         conn.commit()
         print(f"✅ Inserción en {schema}.temp_contacts completada")
 
-        # 🔹 upsert hacia contacts
+        # UPSERT → contacts
         print(f"🔁 Realizando UPSERT desde {schema}.temp_contacts hacia {schema}.contacts...")
         upsert_sql = f"""
             INSERT INTO {schema}.contacts AS c
-                (hs_object_id, firstname, lastname, email, phone, createdate, lastmodifieddate)
-            SELECT hs_object_id, firstname, lastname, email, phone, createdate, lastmodifieddate
+            (
+                hs_object_id,
+                firstname,
+                lastname,
+                email,
+                phone,
+                createdate,
+                lastmodifieddate,
+                pais,
+                comuna,
+                created_in_salesforce,
+                send_to_salesforce,
+                respuesta_primera_interaccion,
+                etapa_vambe,
+                contactado_vambe,
+                hs_object_source_detail_1,
+                scoring_clon
+            )
+            SELECT
+                hs_object_id,
+                firstname,
+                lastname,
+                email,
+                phone,
+                createdate,
+                lastmodifieddate,
+                pais,
+                comuna,
+                created_in_salesforce,
+                send_to_salesforce,
+                respuesta_primera_interaccion,
+                etapa_vambe,
+                contactado_vambe,
+                hs_object_source_detail_1,
+                scoring_clon
             FROM {schema}.temp_contacts
             ON CONFLICT (hs_object_id)
             DO UPDATE SET
-                firstname = EXCLUDED.firstname,
-                lastname = EXCLUDED.lastname,
-                email = EXCLUDED.email,
-                phone = EXCLUDED.phone,
-                lastmodifieddate = EXCLUDED.lastmodifieddate;
+                firstname                  = EXCLUDED.firstname,
+                lastname                   = EXCLUDED.lastname,
+                email                      = EXCLUDED.email,
+                phone                      = EXCLUDED.phone,
+                lastmodifieddate           = EXCLUDED.lastmodifieddate,
+                pais                       = EXCLUDED.pais,
+                comuna                     = EXCLUDED.comuna,
+                created_in_salesforce      = EXCLUDED.created_in_salesforce,
+                send_to_salesforce         = EXCLUDED.send_to_salesforce,
+                respuesta_primera_interaccion = EXCLUDED.respuesta_primera_interaccion,
+                etapa_vambe                = EXCLUDED.etapa_vambe,
+                contactado_vambe           = EXCLUDED.contactado_vambe,
+                hs_object_source_detail_1  = EXCLUDED.hs_object_source_detail_1,
+                scoring_clon               = EXCLUDED.scoring_clon;
         """
         cur.execute(upsert_sql)
         conn.commit()
-
         print(f"✅ UPSERT completado correctamente en {time.time() - start_time:.2f} segundos")
+
+        # LIMPIEZA FINAL → eliminar contactos borrados en HubSpot
+        print("🧹 Eliminando contactos que ya no existen en HubSpot...")
+        delete_sql = f"""
+            DELETE FROM {schema}.contacts
+            WHERE hs_object_id NOT IN (
+                SELECT hs_object_id FROM {schema}.temp_contacts
+            );
+        """
+        cur.execute(delete_sql)
+        conn.commit()
+        print("✅ Limpieza completada (contactos antiguos eliminados)")
 
     except Exception as e:
         conn.rollback()
         print(f"❌ Error al guardar contactos: {e}")
+
     finally:
         cur.close()
         conn.close()

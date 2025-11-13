@@ -14,7 +14,24 @@ def get_hubspot_client():
 def get_all_contacts():
     """Obtiene todos los contactos de HubSpot usando paginación"""
     client = get_hubspot_client()
-    PROPERTIES = ["firstname", "lastname", "email", "phone", "createdate", "lastmodifieddate", "hs_object_id"]
+    PROPERTIES = [
+    "firstname",
+    "lastname",
+    "email",
+    "phone",
+    "createdate",
+    "lastmodifieddate",
+    "hs_object_id",
+    "pais",
+    "comuna",
+    "created_in_salesforce",
+    "send_to_salesforce",
+    "respuesta_primera_interaccion",
+    "etapa_vambe",
+    "contactado_vambe",
+    "hs_object_source_detail_1",
+    "scoring_clon",
+]
 
     all_contacts = []
     after = None
@@ -60,3 +77,42 @@ def get_all_contacts():
 def get_contacts_batch(limit=100):
     """Función original para compatibilidad"""
     return get_all_contacts(limit)
+
+def get_all_leads():
+    client = get_hubspot_client()
+    PROPERTIES = [
+    "hs_object_id",
+    "lead_status",
+    "firstname",
+    "lastname",
+    "email",
+    "phone",
+    "createdate",
+    "hs_pipeline_stage",
+    "sub_stage___new",
+    "sub_stage_attempting",
+    "sub_stage___connected",
+    ]
+    all_leads = []
+    after = None
+    limit = 100
+
+    while True:
+        response = client.crm.leads.basic_api.get_page(
+            limit=limit,
+            after=after,
+            properties=PROPERTIES
+        )
+        results = response.results
+        all_leads.extend(results)
+        if hasattr(response, "paging") and response.paging and hasattr(response.paging, "next") and response.paging.next:
+                after = response.paging.next.after
+        else:
+                print("✅ Se obtuvieron todos los leads disponibles")
+                break
+
+        time.sleep(0.2)  # ligera pausa para evitar rate limits
+
+        print(f"✅ Total final: {len(all_leads)} contactos obtenidos")
+        return all_leads
+    return []
